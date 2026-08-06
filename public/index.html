@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Hub v6.0</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <p class="eyebrow">Business Platform</p>
+    <h1>Business Hub</h1>
+    <p>CRM, segmentanalyse og kontrollsenter for integrasjonsprodukter</p>
+  </div>
+  <button id="theme-toggle">Mørk modus</button>
+</header>
+
+<main>
+  <nav class="tabs">
+    <button class="tab active" data-view="dashboard">Dashboard</button>
+    <button class="tab" data-view="analysis">Selskaper</button>
+    <button class="tab" data-view="contacted">Kontaktede</button>
+    <button class="tab" data-view="active">Aktive avtaler</button>
+    <button class="tab" data-view="market">Markedsfordeling</button>
+  </nav>
+
+
+  <section id="dashboard-section" class="dashboard-section">
+    <section class="dashboard-kpis">
+      <article class="card"><span>Åpne oppgaver</span><strong id="dashboard-open-tasks">–</strong></article>
+      <article class="card"><span>Forfalte oppgaver</span><strong id="dashboard-overdue-tasks">–</strong></article>
+      <article class="card"><span>Forfaller i dag</span><strong id="dashboard-due-today">–</strong></article>
+      <article class="card"><span>Oppfølginger</span><strong id="dashboard-followups">–</strong></article>
+    </section>
+    <div class="dashboard-grid">
+      <section class="card dashboard-panel"><div class="section-header"><div><p class="eyebrow">Salg</p><h2>Pipeline</h2></div></div><div id="dashboard-pipeline" class="pipeline-list"></div></section>
+      <section class="card dashboard-panel"><div class="section-header"><div><p class="eyebrow">Arbeidsliste</p><h2>Oppgaver</h2></div><button id="new-global-task">Ny oppgave</button></div><div id="dashboard-tasks"></div></section>
+      <section class="card dashboard-panel"><div class="section-header"><div><p class="eyebrow">Frister</p><h2>Oppfølging nå</h2></div></div><div id="dashboard-followup-list"></div></section>
+      <section class="card dashboard-panel"><div class="section-header"><div><p class="eyebrow">Historikk</p><h2>Siste aktivitet</h2></div></div><div id="dashboard-activity"></div></section>
+    </div>
+  </section>
+
+  <section class="card filters" id="filters-section" hidden>
+    <div class="filter-grid">
+      <label>
+        <span>Næringssegment</span>
+        <select id="industry-search" aria-label="Velg næringssegment">
+          <option value="__ALL__">Alle næringskoder</option>
+        </select>
+        <small id="industry-description"></small>
+      </label>
+      <label>
+        <span>Søk</span>
+        <input id="company-search" placeholder="Selskap, org.nr., poststed eller regnskapsforetak" />
+      </label>
+      <label><span>Regnskapsforetak</span><select id="firm-filter"></select></label>
+      <label><span>Kommune</span><select id="municipality-filter"></select></label>
+      <label>
+        <span>Ansatte</span>
+        <select id="employees-filter">
+          <option value="">Alle</option>
+          <option value="0">0 / ikke oppgitt</option>
+          <option value="1-4">1–4</option>
+          <option value="5-9">5–9</option>
+          <option value="10-19">10–19</option>
+          <option value="20-49">20–49</option>
+          <option value="50+">50+</option>
+        </select>
+      </label>
+      <label><span>Organisasjonsform</span><select id="organisation-form-filter"></select></label>
+      <label>
+        <span>Prospektstatus</span>
+        <select id="prospect-status-filter">
+          <option value="">Alle statuser</option>
+          <option>Ny</option><option>Kontaktet</option><option>Møte booket</option>
+          <option>Tilbud sendt</option><option>Venter</option>
+          <option>Aktiv avtale</option><option>Kunde</option><option>Ikke aktuell</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="actions">
+            <button id="apply-filters" class="primary">Oppdater og vis resultat</button>
+      <button id="reset-filters">Nullstill</button>
+      <button type="button" id="batch-comment">Oppdater flere</button>
+      <button id="export-xlsx">Eksporter Excel</button>
+      <button id="export-csv">Eksporter CSV</button>
+    </div>
+  </section>
+
+  <section class="kpis" id="kpi-section" hidden>
+    <article class="card"><strong id="total-companies">–</strong><span>Selskaper</span></article>
+    <article class="card"><strong id="not-contacted-count">–</strong><span>Ikke kontaktet</span></article>
+    <article class="card"><strong id="contacted-count">–</strong><span>Kontaktet</span></article>
+    <article class="card"><strong id="active-count">–</strong><span>Aktive avtaler</span></article>
+    <article class="card"><strong id="firm-count">–</strong><span>Regnskapsforetak</span></article>
+  </section>
+
+  <section class="card table-card" id="market-section" hidden>
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Markedsfordeling</p>
+        <h2>Regnskapsforetak</h2>
+        <p>Fordeling innenfor valgte filtre. Klikk på et foretak for å åpne selskapslisten.</p>
+      </div>
+      <input id="firm-search" placeholder="Søk i foretak" />
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Regnskapsforetak</th><th>Org.nr.</th><th>Selskaper</th><th>Andel</th><th>Kommuner</th></tr></thead>
+        <tbody id="firms-body"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button id="firms-prev">Forrige</button>
+      <span id="firms-page"></span>
+      <button id="firms-next">Neste</button>
+    </div>
+  </section>
+
+  <section id="status-legend" class="status-legend" hidden aria-label="Forklaring av statusfarger">
+    <span><i class="status-dot status-kunde"></i>Kunde</span>
+    <span><i class="status-dot status-kontaktet"></i>Kontaktet</span>
+    <span><i class="status-dot status-møte-booket"></i>Møte</span>
+    <span><i class="status-dot status-tilbud-sendt"></i>Tilbud</span>
+    <span><i class="status-dot status-ny"></i>Ny</span>
+    <span><i class="status-dot status-ikke-aktuell"></i>Ikke aktuell</span>
+  </section>
+
+  <section class="card table-card" id="companies-section" hidden>
+    <div class="section-header">
+      <div><p class="eyebrow">Datagrunnlag</p><h2 id="companies-heading">Selskaper</h2><p id="company-count"></p></div>
+      <div class="inline-controls">
+        <select id="company-sort">
+          <option value="name:asc">Navn A–Å</option>
+          <option value="name:desc">Navn Å–A</option>
+          <option value="employees:desc">Flest ansatte</option>
+          <option value="municipality:asc">Kommune A–Å</option>
+          <option value="accountingFirm:asc">Regnskapsforetak A–Å</option>
+          <option value="prospectStatus:asc">Prospektstatus</option>
+          <option value="nextContact:asc">Neste kontakt</option>
+        </select>
+        <select id="company-page-size">
+          <option value="25">25 per side</option>
+          <option value="50" selected>50 per side</option>
+          <option value="100">100 per side</option>
+          <option value="250">250 per side</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Org.nr.</th><th>Selskap</th><th>Næringskode</th><th>Status</th><th>Siste kontakt</th><th>Neste kontakt</th><th>Ansvarlig</th></tr></thead>
+        <tbody id="companies-body"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button id="companies-prev">Forrige</button>
+      <span id="companies-page"></span>
+      <button id="companies-next">Neste</button>
+    </div>
+  </section>
+
+  <dialog id="company-dialog" class="wide-dialog">
+    <div class="dialog-header">
+      <div class="title-with-badge">
+        <h2 id="company-title"></h2>
+        <span id="company-status-badge" class="badge status-ny">Ny</span>
+      </div>
+      <button type="button" id="close-company">Lukk</button>
+    </div>
+    <div class="detail-grid">
+      <section>
+        <h3>Firma og Brreg</h3>
+        <div id="company-details"></div>
+        <h4>Kontaktpersoner fra Brreg</h4>
+        <div id="brreg-contacts"></div>
+      </section>
+      <section>
+        <h3>Salgsstatus og avtale</h3>
+        <input type="hidden" id="company-orgnr" />
+        <label><span>Status</span><select id="company-status">
+          <option>Ny</option><option>Kontaktet</option><option>Møte booket</option>
+          <option>Tilbud sendt</option><option>Venter</option>
+          <option>Aktiv avtale</option><option>Kunde</option><option>Ikke aktuell</option>
+        </select></label>
+        <label><span>Ansvarlig selger</span><input id="company-responsible" /></label>
+        <label><span>Neste kontakt</span><input id="company-next-contact" type="date" /></label>
+        <label><span>Kommentar</span><textarea id="company-note" rows="4"></textarea></label>
+        <label class="checkbox-line"><input id="company-active-agreement" type="checkbox" /> Aktiv avtale</label>
+        <label><span>Avtaletype</span><input id="company-agreement-type" /></label>
+        <div class="two-columns">
+          <label><span>Avtale fra</span><input id="company-agreement-start" type="date" /></label>
+          <label><span>Avtale til</span><input id="company-agreement-end" type="date" /></label>
+        </div>
+        <button id="save-company" class="primary">Lagre</button>
+      </section>
+    </div>
+
+    <section>
+      <h3>Faktiske kontaktpersoner</h3>
+      <div id="actual-contacts"></div>
+      <div class="contact-form">
+        <input id="contact-name" placeholder="Navn" />
+        <input id="contact-role" placeholder="Stilling" />
+        <input id="contact-email" placeholder="E-post" />
+        <input id="contact-phone" placeholder="Telefon" />
+        <button id="add-contact">Legg til kontakt</button>
+      </div>
+    </section>
+
+    <div class="detail-grid lower-detail-grid">
+      <section>
+        <h3>Oppgaver</h3>
+        <div id="company-tasks"></div>
+        <div class="task-form">
+          <input id="task-title" placeholder="Ny oppgave" />
+          <input id="task-due-date" type="date" />
+          <select id="task-priority"><option>Normal</option><option>Høy</option><option>Lav</option></select>
+          <button id="add-task">Legg til</button>
+        </div>
+      </section>
+      <section><h3>Produkter og integrasjoner</h3><div id="company-integrations"></div></section>
+    </div>
+    <section><h3>Historikk</h3><div id="company-history"></div></section>
+  </dialog>
+
+  <dialog id="task-dialog">
+    <div class="dialog-header"><h2>Ny oppgave</h2><button type="button" id="close-task-dialog">Lukk</button></div>
+    <label><span>Tittel</span><input id="global-task-title" /></label>
+    <label><span>Organisasjonsnummer (valgfritt)</span><input id="global-task-orgnr" /></label>
+    <label><span>Forfallsdato</span><input id="global-task-due" type="date" /></label>
+    <label><span>Ansvarlig</span><input id="global-task-responsible" /></label>
+    <label><span>Prioritet</span><select id="global-task-priority"><option>Normal</option><option>Høy</option><option>Lav</option></select></label>
+    <label><span>Beskrivelse</span><textarea id="global-task-description" rows="4"></textarea></label>
+    <button id="save-global-task" class="primary">Lagre oppgave</button>
+  </dialog>
+
+  <dialog id="batch-dialog" class="wide-dialog">
+    <div class="dialog-header">
+      <div>
+        <h2>Oppdater flere</h2>
+        <p id="batch-scope"></p>
+      </div>
+      <button type="button" id="cancel-batch">Lukk</button>
+    </div>
+
+    <section class="scope-card">
+      <strong id="batch-count">Beregner utvalg …</strong>
+      <p id="batch-filter-summary"></p>
+    </section>
+
+    <label>
+      <span>Handling</span>
+      <select id="batch-action">
+        <option value="comment">Registrer kommentar</option>
+        <option value="email">E-post sendt</option>
+        <option value="status">Endre status</option>
+        <option value="responsible">Sett ansvarlig</option>
+        <option value="nextContact">Sett neste kontakt</option>
+        <option value="meeting">Registrer møte booket</option>
+        <option value="offer">Registrer tilbud sendt</option>
+        <option value="notRelevant">Marker som ikke aktuell</option>
+        <option value="agreement">Endre avtale</option>
+      </select>
+    </label>
+
+    <div id="batch-date-group">
+      <label>
+        <span>Dato</span>
+        <input id="batch-sent-date" type="date" />
+      </label>
+    </div>
+
+    <div id="batch-status-group" hidden>
+      <label>
+        <span>Ny status</span>
+        <select id="batch-status">
+          <option>Ny</option>
+          <option>Kontaktet</option>
+          <option>Møte booket</option>
+          <option>Tilbud sendt</option>
+          <option>Venter</option>
+          <option>Kunde</option>
+          <option>Aktiv avtale</option>
+          <option>Ikke aktuell</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="batch-agreement-group" hidden>
+      <label>
+        <span>Avtalestatus</span>
+        <select id="batch-agreement-status">
+          <option value="active">Aktiv avtale</option>
+          <option value="inactive">Ingen aktiv avtale</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="batch-next-contact-group" hidden>
+      <label>
+        <span>Neste kontakt</span>
+        <input id="batch-next-contact" type="date" />
+      </label>
+    </div>
+
+    <label>
+      <span>Ansvarlig</span>
+      <input id="batch-responsible" placeholder="Navn på ansvarlig selger" />
+    </label>
+
+    <label>
+      <span>Kommentar</span>
+      <textarea
+        id="batch-comment-text"
+        rows="5"
+        placeholder="Valgfri kommentar som lagres i historikken."
+      ></textarea>
+    </label>
+
+    <fieldset>
+      <legend>Begrens utvalget</legend>
+      <label class="checkbox-line">
+        <input id="batch-only-uncontacted" type="checkbox" />
+        Bare selskaper som ikke er kontaktet
+      </label>
+      <label class="checkbox-line">
+        <input id="batch-only-without-responsible" type="checkbox" />
+        Bare selskaper uten ansvarlig
+      </label>
+      <label class="checkbox-line">
+        <input id="batch-only-without-history" type="checkbox" />
+        Bare selskaper uten tidligere aktivitet
+      </label>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" id="preview-batch">Oppdater antall</button>
+      <button type="button" id="save-batch" class="primary">Bruk på utvalget</button>
+    </div>
+  </dialog>
+
+  <p id="status"></p>
+</main>
+<script src="/app.js" defer></script>
+</body>
+</html>
