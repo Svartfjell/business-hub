@@ -5,17 +5,52 @@ import { config } from "./config.js";
 
 fs.mkdirSync(path.dirname(config.databasePath), { recursive: true });
 
-if (!fs.existsSync(config.databasePath)) {
-  throw new Error(
-    `Fant ikke databasen ${config.databasePath}. Kopier segment.sqlite til data-mappen.`,
-  );
-}
-
+const databaseExisted = fs.existsSync(config.databasePath);
 export const db = new Database(config.databasePath);
+
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
+// Basetabeller må opprettes før resten av applikasjonen lager indekser og CRM-tabeller.
+// Dette gjør at en fersk clone/Codespace kan starte uten at segment.sqlite ligger i Git.
 db.exec(`
+  CREATE TABLE IF NOT EXISTS industries (
+    code TEXT PRIMARY KEY,
+    description TEXT,
+    company_count INTEGER NOT NULL DEFAULT 0,
+    imported_count INTEGER NOT NULL DEFAULT 0,
+    imported_at TEXT,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS companies (
+    organisation_number TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    organisation_form TEXT,
+    address TEXT,
+    postal_code TEXT,
+    postal_place TEXT,
+    municipality TEXT,
+    industry_code TEXT,
+    industry_description TEXT,
+    number_of_employees INTEGER,
+    accounting_firm_name TEXT,
+    accounting_firm_organisation_number TEXT,
+    fetched_at TEXT NOT NULL,
+    raw_json TEXT,
+    roles_json TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS targets (
+    industry_code TEXT NOT NULL,
+    organisation_number TEXT NOT NULL,
+    sequence_number INTEGER NOT NULL,
+    imported INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (industry_code, organisation_number)
+  );
+
   CREATE TABLE IF NOT EXISTS prospect_notes (
     organisation_number TEXT PRIMARY KEY,
     status TEXT NOT NULL DEFAULT 'Ny',
@@ -96,6 +131,10 @@ db.exec(`
     ON companies (organisation_form);
 `);
 
+if (!databaseExisted) {
+  console.log(`Opprettet ny tom database: ${config.databasePath}`);
+}
+
 function columns(tableName: string): Set<string> {
   const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
     name: string;
@@ -120,7 +159,6 @@ addColumn("prospect_notes", "active_agreement", "INTEGER NOT NULL DEFAULT 0");
 addColumn("prospect_notes", "agreement_type", "TEXT");
 addColumn("prospect_notes", "agreement_start", "TEXT");
 addColumn("prospect_notes", "agreement_end", "TEXT");
-
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
