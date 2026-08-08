@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Hub – Administrasjon</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .admin-wrap{max-width:900px;margin:40px auto;padding:0 20px}.danger-card{border:2px solid #b42318;padding:24px;border-radius:14px}.danger-card h2{margin-top:0}.admin-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}.admin-stat{padding:14px;border:1px solid #ccc;border-radius:10px}.admin-stat strong{display:block;font-size:1.6rem}.confirm-box{display:grid;gap:14px;margin-top:20px}.danger-button{background:#b42318;color:white;border-color:#b42318}.danger-button:disabled{opacity:.45;cursor:not-allowed}.warning{font-weight:700}.backup-note{padding:12px;border-radius:8px;background:rgba(127,127,127,.12)}
+  </style>
+</head>
+<body>
+<header class="topbar"><div><p class="eyebrow">Business Hub</p><h1>Administrasjon</h1><p>Database og nullstilling</p></div><a href="/">Tilbake til Business Hub</a></header>
+<main class="admin-wrap">
+  <section class="card">
+    <h2>Datagrunnlag</h2>
+    <p>Her ser du hvor mye data som ligger i den lokale SQLite-databasen.</p>
+    <div id="stats" class="admin-stats"></div>
+  </section>
+
+  <section class="danger-card">
+    <p class="eyebrow">Faresone</p>
+    <h2>Slett alle operative data</h2>
+    <p class="warning">Dette tømmer selskaper, Brreg-importer, CRM, kontakter, aktiviteter, oppgaver, kampanjer og integrasjonsdata.</p>
+    <p>Databasestrukturen og produktdefinisjonene beholdes. Før sletting lager serveren automatisk en komplett SQLite-sikkerhetskopi i data-mappen.</p>
+    <div class="confirm-box">
+      <label class="checkbox-line"><input id="step1" type="checkbox" /> Jeg forstår at dataene fjernes fra den aktive databasen.</label>
+      <label class="checkbox-line"><input id="step2" type="checkbox" /> Jeg har kontrollert tallene over og vil fortsette.</label>
+      <label><span>Skriv <strong>SLETT ALLE DATA</strong></span><input id="confirmation" autocomplete="off" placeholder="SLETT ALLE DATA" /></label>
+      <button id="reset" class="danger-button" disabled>Bekreft permanent sletting</button>
+    </div>
+    <p id="result"></p>
+  </section>
+</main>
+<script>
+const stats=document.querySelector('#stats');const step1=document.querySelector('#step1');const step2=document.querySelector('#step2');const confirmation=document.querySelector('#confirmation');const reset=document.querySelector('#reset');const result=document.querySelector('#result');
+const fmt=v=>new Intl.NumberFormat('nb-NO').format(Number(v||0));
+function validate(){reset.disabled=!(step1.checked&&step2.checked&&confirmation.value.trim()==='SLETT ALLE DATA')}
+[step1,step2,confirmation].forEach(x=>x.addEventListener('input',validate));
+async function load(){const r=await fetch('/api/admin/data-summary');const d=await r.json();stats.innerHTML=`<div class="admin-stat"><strong>${fmt(d.companies)}</strong>Selskaper</div><div class="admin-stat"><strong>${fmt(d.industries)}</strong>Næringskoder</div><div class="admin-stat"><strong>${fmt(d.contacts)}</strong>Kontakter</div><div class="admin-stat"><strong>${fmt(d.activities)}</strong>Aktiviteter</div><div class="admin-stat"><strong>${fmt(d.tasks)}</strong>Oppgaver</div><div class="admin-stat"><strong>${fmt(d.integrations)}</strong>Integrasjoner</div>`}
+reset.addEventListener('click',async()=>{if(!window.confirm('Siste kontroll: Vil du virkelig slette alle operative data? En sikkerhetskopi opprettes først.'))return;reset.disabled=true;reset.textContent='Lager backup og sletter …';try{const r=await fetch('/api/admin/reset-data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({step1:step1.checked,step2:step2.checked,confirmation:confirmation.value})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Sletting feilet');result.innerHTML=`<span class="backup-note">${d.message}<br>Backup: ${d.backupPath}</span>`;step1.checked=false;step2.checked=false;confirmation.value='';await load()}catch(e){result.textContent=e.message}finally{reset.textContent='Bekreft permanent sletting';validate()}});
+load().catch(e=>result.textContent=e.message);
+</script>
+</body>
+</html>
