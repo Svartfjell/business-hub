@@ -1,8 +1,8 @@
 import express, { type Express } from "express";
 import { registerAdminRoutes } from "./admin.js";
+import { registerInsightRoutes } from "./insights.js";
 
-// Registrer administrasjonsrutene på samme Express-app rett før serveren starter.
-// Dette holder administrasjonsfunksjonene isolert fra den store server.ts-filen.
+// Registrer tilleggsrutene på samme Express-app rett før serveren starter.
 const originalListen = express.application.listen;
 
 express.application.listen = function (
@@ -10,6 +10,7 @@ express.application.listen = function (
   ...args: Parameters<typeof originalListen>
 ) {
   registerAdminRoutes(this);
+  registerInsightRoutes(this);
   return originalListen.apply(this, args);
 } as typeof originalListen;
 
