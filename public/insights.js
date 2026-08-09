@@ -2,9 +2,14 @@
   const firmFilter = document.querySelector('#firm-filter');
   const companiesSection = document.querySelector('#companies-section');
   const companyDetails = document.querySelector('#company-details');
+  const companyDialog = document.querySelector('#company-dialog');
+  const globalStatusLegend = document.querySelector('#status-legend');
 
   const style = document.createElement('style');
   style.textContent = `
+    #status-legend { display:none !important; }
+    .customer-status-legend { display:flex; flex-wrap:wrap; gap:10px 18px; margin:14px 0 18px; padding:12px 14px; border:1px solid var(--border); border-radius:12px; background:var(--soft); }
+    .customer-status-legend span { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; }
     .firm-industry-insights { margin: 0 0 18px; overflow: hidden; }
     .firm-industry-grid { display:grid; grid-template-columns:minmax(260px, .8fr) minmax(360px, 1.2fr); gap:28px; padding:24px; align-items:center; }
     .donut-wrap { display:flex; justify-content:center; align-items:center; min-height:320px; }
@@ -35,6 +40,26 @@
     node.textContent = String(value ?? '');
     return node.innerHTML;
   };
+
+  function activeView() {
+    return document.querySelector('.tab.active')?.dataset?.view || 'dashboard';
+  }
+
+  function ensureCustomerStatusLegend() {
+    if (!companyDialog || companyDialog.querySelector('.customer-status-legend')) return;
+    const legend = document.createElement('div');
+    legend.className = 'customer-status-legend';
+    legend.setAttribute('aria-label', 'Forklaring av statusfarger');
+    legend.innerHTML = globalStatusLegend?.innerHTML || `
+      <span><i class="status-dot status-kunde"></i>Kunde</span>
+      <span><i class="status-dot status-kontaktet"></i>Kontaktet</span>
+      <span><i class="status-dot status-møte-booket"></i>Møte</span>
+      <span><i class="status-dot status-tilbud-sendt"></i>Tilbud</span>
+      <span><i class="status-dot status-ny"></i>Ny</span>
+      <span><i class="status-dot status-ikke-aktuell"></i>Ikke aktuell</span>`;
+    const header = companyDialog.querySelector('.dialog-header');
+    header?.insertAdjacentElement('afterend', legend);
+  }
 
   function ensureFirmInsightsPanel() {
     let panel = document.querySelector('#firm-industry-insights');
@@ -86,6 +111,11 @@
   async function renderFirmInsights() {
     const panel = ensureFirmInsightsPanel();
 
+    if (activeView() !== 'market') {
+      panel.hidden = true;
+      return;
+    }
+
     try {
       const response = await fetch(`/api/insights/accounting-firm-distribution?${currentDistributionParams()}`);
       if (!response.ok) throw new Error(await response.text());
@@ -129,7 +159,7 @@
           setTimeout(() => document.querySelector('#apply-filters')?.click(), 0);
         });
       });
-    } catch (error) {
+    } catch {
       panel.hidden = false;
       panel.querySelector('#firm-industry-title').textContent = 'Fordeling mellom regnskapsforetak';
       panel.querySelector('#firm-industry-subtitle').textContent = 'Kunne ikke laste markedsfordelingen.';
@@ -180,18 +210,10 @@
   const originalOpenCompany = window.openCompany;
   if (typeof originalOpenCompany === 'function') {
     window.openCompany = async function (...args) {
+      ensureCustomerStatusLegend();
       clearCompanyRisk();
       const result = await originalOpenCompany.apply(this, args);
       await renderCompanyRisk(args[0]);
-      return result;
-    };
-  }
-
-  const originalLoadCompanies = window.loadCompanies;
-  if (typeof originalLoadCompanies === 'function') {
-    window.loadCompanies = async function (...args) {
-      const result = await originalLoadCompanies.apply(this, args);
-      await renderFirmInsights();
       return result;
     };
   }
