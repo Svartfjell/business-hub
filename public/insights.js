@@ -46,47 +46,52 @@
     panel.innerHTML = `
       <div class="section-header">
         <div>
-          <p class="eyebrow">Næringsfordeling</p>
-          <h2 id="firm-industry-title">Valgt regnskapsforetak</h2>
+          <p class="eyebrow">Markedsfordeling</p>
+          <h2 id="firm-industry-title">Regnskapsforetak</h2>
           <p id="firm-industry-subtitle"></p>
         </div>
       </div>
       <div class="firm-industry-grid">
-        <div class="donut-wrap"><div id="firm-industry-donut" class="industry-donut" aria-label="Sektordiagram for næringsfordeling"></div></div>
+        <div class="donut-wrap"><div id="firm-industry-donut" class="industry-donut" aria-label="Sektordiagram for regnskapsforetak"></div></div>
         <div id="firm-industry-list" class="industry-list"></div>
       </div>`;
     companiesSection?.parentNode?.insertBefore(panel, companiesSection);
     return panel;
   }
 
-  function groupIndustries(items, total) {
+  function currentDistributionParams() {
+    const params = new URLSearchParams();
+    params.set('industry', document.querySelector('#industry-search')?.value || '__ALL__');
+    params.set('q', document.querySelector('#company-search')?.value.trim() || '');
+    params.set('municipality', document.querySelector('#municipality-filter')?.value || '');
+    params.set('employees', document.querySelector('#employees-filter')?.value || '');
+    params.set('organisationForm', document.querySelector('#organisation-form-filter')?.value || '');
+    return params;
+  }
+
+  function groupFirms(items, total) {
     const major = [];
     let otherCount = 0;
     for (const item of items) {
       const share = total ? item.companyCount / total : 0;
-      if (major.length < 9 && share >= 0.025) major.push(item);
+      if (major.length < 11 && share >= 0.02) major.push(item);
       else otherCount += item.companyCount;
     }
     if (otherCount > 0) {
-      major.push({ industryCode: '__OTHER__', industryDescription: 'Andre næringer', companyCount: otherCount, share: total ? otherCount / total : 0 });
+      major.push({ accountingFirmName: 'Andre regnskapsforetak', accountingFirmOrganisationNumber: null, companyCount: otherCount, share: total ? otherCount / total : 0, other: true });
     }
     return major;
   }
 
   async function renderFirmInsights() {
     const panel = ensureFirmInsightsPanel();
-    const firm = firmFilter?.value || '';
-    if (!firm || firm === '__WITHOUT__') {
-      panel.hidden = true;
-      return;
-    }
 
     try {
-      const response = await fetch(`/api/insights/accounting-firm-industries?firm=${encodeURIComponent(firm)}`);
+      const response = await fetch(`/api/insights/accounting-firm-distribution?${currentDistributionParams()}`);
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
-      const groups = groupIndustries(data.industries, data.total);
-      const colors = ['#2563eb','#16a34a','#7c3aed','#ea580c','#0891b2','#ca8a04','#db2777','#4f46e5','#059669','#64748b'];
+      const groups = groupFirms(data.accountingFirms, data.total);
+      const colors = ['#2563eb','#16a34a','#7c3aed','#ea580c','#0891b2','#ca8a04','#db2777','#4f46e5','#059669','#0f766e','#9333ea','#64748b'];
       let cursor = 0;
       const stops = groups.map((item, index) => {
         const start = cursor;
@@ -95,37 +100,39 @@
       });
 
       panel.hidden = false;
-      panel.querySelector('#firm-industry-title').textContent = firm;
-      panel.querySelector('#firm-industry-subtitle').textContent = `${Number(data.total).toLocaleString('nb-NO')} selskaper fordelt på ${data.industries.length.toLocaleString('nb-NO')} næringskoder. Klikk på en næring for å filtrere selskapslisten.`;
+      const industrySelect = document.querySelector('#industry-search');
+      const selectedText = industrySelect?.selectedOptions?.[0]?.textContent || 'Alle næringskoder';
+      panel.querySelector('#firm-industry-title').textContent = 'Fordeling mellom regnskapsforetak';
+      panel.querySelector('#firm-industry-subtitle').textContent = `${Number(data.total).toLocaleString('nb-NO')} selskaper med registrert regnskapsforetak i valgt utvalg (${selectedText}). Selskaper uten regnskapsforetak er utelatt.`;
+
       const donut = panel.querySelector('#firm-industry-donut');
       donut.style.background = data.total ? `conic-gradient(${stops.join(',')})` : '#e5e7eb';
-      donut.innerHTML = `<span><strong>${Number(data.total).toLocaleString('nb-NO')}</strong><small>selskaper</small></span>`;
+      donut.innerHTML = `<span><strong>${Number(data.total).toLocaleString('nb-NO')}</strong><small>med regnskapsforetak</small></span>`;
 
       const list = panel.querySelector('#firm-industry-list');
       list.innerHTML = groups.map((item, index) => `
-        <button class="industry-insight-row" data-industry="${escHtml(item.industryCode)}" ${item.industryCode === '__OTHER__' ? 'disabled' : ''}>
+        <button class="industry-insight-row" data-firm="${escHtml(item.accountingFirmName)}" ${item.other ? 'disabled' : ''}>
           <i style="background:${colors[index % colors.length]}"></i>
-          <span><strong>${escHtml(item.industryCode === '__OTHER__' ? 'Andre' : item.industryCode)}</strong><small>${escHtml(item.industryDescription)}</small></span>
+          <span><strong>${escHtml(item.accountingFirmName)}</strong><small>${escHtml(item.accountingFirmOrganisationNumber || '')}</small></span>
           <b>${Number(item.companyCount).toLocaleString('nb-NO')}</b>
           <em>${(item.share * 100).toFixed(1).replace('.', ',')} %</em>
         </button>`).join('');
 
       list.querySelectorAll('.industry-insight-row:not([disabled])').forEach((button) => {
         button.addEventListener('click', () => {
-          const code = button.dataset.industry;
-          const industrySearch = document.querySelector('#industry-search');
-          if (!industrySearch || !code) return;
-          const option = [...industrySearch.options].find((item) => item.value === code);
+          const firm = button.dataset.firm;
+          if (!firm || !firmFilter) return;
+          const option = [...firmFilter.options].find((item) => item.value === firm);
           if (!option) return;
-          industrySearch.value = code;
-          industrySearch.dispatchEvent(new Event('change', { bubbles: true }));
+          firmFilter.value = firm;
+          firmFilter.dispatchEvent(new Event('change', { bubbles: true }));
           setTimeout(() => document.querySelector('#apply-filters')?.click(), 0);
         });
       });
-    } catch {
+    } catch (error) {
       panel.hidden = false;
-      panel.querySelector('#firm-industry-title').textContent = 'Næringsfordeling';
-      panel.querySelector('#firm-industry-subtitle').textContent = 'Kunne ikke laste næringsfordelingen.';
+      panel.querySelector('#firm-industry-title').textContent = 'Fordeling mellom regnskapsforetak';
+      panel.querySelector('#firm-industry-subtitle').textContent = 'Kunne ikke laste markedsfordelingen.';
     }
   }
 
@@ -189,8 +196,8 @@
     };
   }
 
-  firmFilter?.addEventListener('change', renderFirmInsights);
-  document.querySelector('#apply-filters')?.addEventListener('click', () => setTimeout(renderFirmInsights, 50));
+  document.querySelector('#apply-filters')?.addEventListener('click', () => setTimeout(renderFirmInsights, 80));
+  document.querySelector('#reset-filters')?.addEventListener('click', () => setTimeout(renderFirmInsights, 80));
   document.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', () => setTimeout(renderFirmInsights, 0)));
   setTimeout(renderFirmInsights, 0);
 })();
